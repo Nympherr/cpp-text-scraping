@@ -7,8 +7,8 @@
 #include <algorithm>
 #include <iomanip>
 
-std::map<std::string, int> pasikartojantys_zodziai;
-std::map<std::string, int> pasikartojantys_URL;
+std::map<std::string, std::vector<int>> pasikartojantys_zodziai;
+std::map<std::string, std::vector<int>> pasikartojantys_URL;
 
 std::string irasymo_pasirinkimas(){
 
@@ -33,42 +33,37 @@ std::string irasymo_pasirinkimas(){
     return ivestis;
 };
 
-std::string processWord(std::string word) {
-    if (word.find("www.") != std::string::npos || 
-        word.find("http://") != std::string::npos || 
-        word.find("https://") != std::string::npos ||
-        word.find(".lt") != std::string::npos ||
-        word.find(".com") != std::string::npos ||
-        word.find(".eu") != std::string::npos) {
-        // This word looks like a URL, so don't remove any punctuation
-        return word;
+std::string tikrina_zodi(std::string zodis) {
+    if (zodis.find("www.") != std::string::npos || 
+        zodis.find("http://") != std::string::npos || 
+        zodis.find("https://") != std::string::npos ||
+        zodis.find(".lt") != std::string::npos ||
+        zodis.find(".com") != std::string::npos ||
+        zodis.find(".eu") != std::string::npos) {
+        // Žodis atrodo kaip URL, tad paliekamas
+        return zodis;
     }
      else {
-
-        const std::string unwanted_chars = "„“–";
-        for (char& c : word) {
-            if (std::ispunct(c) || std::isdigit(c) || unwanted_chars.find(c) != std::string::npos) {
-                c = ' '; // replace unwanted characters with space
+        // Tikriname ar turi skaičių, nepageidaujamų simbolių
+        const std::string nenorimi_simboliai = "„“–";
+        for (char& c : zodis) {
+            if (std::ispunct(c) || std::isdigit(c) || nenorimi_simboliai.find(c) != std::string::npos) {
+                c = ' ';
             }
         }
-        word.erase(std::remove_if(word.begin(), word.end(), ::isspace), word.end()); // remove spaces
-        return word;
+        zodis.erase(std::remove_if(zodis.begin(), zodis.end(), ::isspace), zodis.end());
+        return zodis;
     }
 }
 
-bool is_URL(std::string word) {
-    if (word.find("www.") != std::string::npos || 
-        word.find("http://") != std::string::npos || 
-        word.find("https://") != std::string::npos ||
-        word.find(".lt") != std::string::npos ||
-        word.find(".com") != std::string::npos ||
-        word.find(".eu") != std::string::npos) {
-        // This word looks like a URL, so don't remove any punctuation
-        return true;
-    }
-    else {
-        return false;
-    }
+// Grąžina true, jeigu žodis yra URL
+bool yra_URL(std::string zodis) {
+    return zodis.find("www.") != std::string::npos || 
+           zodis.find("http://") != std::string::npos || 
+           zodis.find("https://") != std::string::npos ||
+           zodis.find(".lt") != std::string::npos ||
+           zodis.find(".com") != std::string::npos ||
+           zodis.find(".eu") != std::string::npos;
 }
 
 void failo_nuskaitymas(std::string failo_pavadinimas){
@@ -78,49 +73,61 @@ void failo_nuskaitymas(std::string failo_pavadinimas){
 
     std::string nuskaityta_eilute;
 
+    // rodys, kuriose eilutėse buvo rastas žodis
+    int eilutes_numeris = 1;
+
     // Skaitoma atidaryto failo kiekviena eilutė
-
     while (std::getline(skaitomas_failas, nuskaityta_eilute)) {
-        std::istringstream iss(nuskaityta_eilute);
-        std::string word;
+        std::istringstream eilute(nuskaityta_eilute);
+        std::string zodis;
 
-        while (iss >> word) {
-            word = processWord(word);
-            std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-            if (!word.empty()) { // check if the word is not empty after removing spaces
+        while (eilute >> zodis) {
+            zodis = tikrina_zodi(zodis);
 
-                if(is_URL(word) == false){
-                    if (pasikartojantys_zodziai.count(word) > 0) { // If the word is already in the map
-                        ++pasikartojantys_zodziai[word]; // increment its count
+            // Keičiame į mažasias, kad išvedamame faile nesimaišytų su didžiosiomis raidėmis
+            std::transform(zodis.begin(), zodis.end(), zodis.begin(), ::tolower);
+
+            // prieš pridedant žodį į map, tikriname ar jis tuščias
+            if (!zodis.empty()) {
+
+                // tikrinam ar žodis yra URL, kad žinotume kur dėti
+                if(yra_URL(zodis) == false){
+                    if (pasikartojantys_zodziai.count(zodis) > 0) {
+                        pasikartojantys_zodziai[zodis].push_back(eilutes_numeris);
                     }
-                    else { // If the word is not in the map
-                        pasikartojantys_zodziai[word] = 1; // add it to the map with a count of 1
+                    else { 
+                        pasikartojantys_zodziai[zodis];
+                        pasikartojantys_zodziai[zodis].push_back(eilutes_numeris); 
+
                     }
                 }
+                // žodis nėra URL
                 else{
-                    if (pasikartojantys_URL.count(word) > 0) { // If the word is already in the map
-                        ++pasikartojantys_URL[word]; // increment its count
+                    if (pasikartojantys_URL.count(zodis) > 0) { 
+                        pasikartojantys_URL[zodis].push_back(eilutes_numeris);
                     }
-                    else { // If the word is not in the map
-                        pasikartojantys_URL[word] = 1; // add it to the map with a count of 1
+                    else {
+                        pasikartojantys_URL[zodis];
+                        pasikartojantys_URL[zodis].push_back(eilutes_numeris);
                     }
                 }
             }
+        }
+        eilutes_numeris++;
+    }
+    // ištriname tuos žodžius, kurie pasikartojo tik kartą
+    for(auto it = pasikartojantys_zodziai.cbegin(); it != pasikartojantys_zodziai.cend(); ) {
+        if(it->second.size() < 2) {
+            it = pasikartojantys_zodziai.erase(it); 
+        }
+        else {
+            ++it;
         }
     }
-        auto it = pasikartojantys_zodziai.begin();
-        while (it != pasikartojantys_zodziai.end()) {
-            if (it->second < 2) {
-                it = pasikartojantys_zodziai.erase(it);
-            } 
-            else {
-                ++it;
-            }
-        }
     skaitomas_failas.close();
 };
 
-void lenteles_kurimas(std::map<std::string, int> duomenys_zodziai, std::map<std::string, int> duomenys_URL){
+void lenteles_kurimas(std::map<std::string, std::vector<int>> duomenys_zodziai, std::map<std::string, std::vector<int>> duomenys_URL){
 
     std::ostringstream buferis;
 
@@ -129,22 +136,57 @@ void lenteles_kurimas(std::map<std::string, int> duomenys_zodziai, std::map<std:
 
     for (const auto& zodis : duomenys_zodziai) {
         buferis << std::setw(40) << std::left << zodis.first;
-        buferis << zodis.second << '\n';
+        buferis << zodis.second.size() << '\n';
     }
 
     buferis << "-------------------------------------------------------------------\n";
 
     for (const auto& zodis : duomenys_URL) {
         buferis << std::setw(40) << std::left << zodis.first;
-        buferis << zodis.second << '\n';
+        buferis << zodis.second.size() << '\n';
     }
 
     const std::string& isvedimo_string = buferis.str();
 
-    std::ofstream lenteles_failas("textas.txt", std::ios_base::binary);
+    std::ofstream lenteles_failas("zodziuSkaicius.txt", std::ios_base::binary);
     lenteles_failas.write(isvedimo_string.c_str(), isvedimo_string.size());
     lenteles_failas.close();
 }
+
+void reference_kurimas(std::map<std::string, std::vector<int>> duomenys_zodziai, std::map<std::string, std::vector<int>> duomenys_URL){
+
+    std::ostringstream buferis;
+
+    buferis << "Žodis                                          Eilutės, kuriose randamas žodis\n";
+    buferis << "-----------------------------------------------------------------------------\n";
+
+    for (const auto& zodis : duomenys_zodziai) {
+        buferis << std::setw(50) << std::left << zodis.first;
+        buferis << "| ";
+        for(int i = 0; i < zodis.second.size(); i++){
+            buferis << zodis.second[i] << " | ";
+        }
+        buferis << std::endl;
+    }
+
+    buferis << "-----------------------------------------------------------------------------\n";
+
+    for (const auto& zodis : duomenys_URL) {
+        buferis << std::setw(50) << std::left << zodis.first;
+        buferis << "| ";
+        for(int i = 0; i < zodis.second.size(); i++){
+            buferis << zodis.second[i] << " | ";
+        }
+        buferis << std::endl;
+    }
+
+    const std::string& isvedimo_string = buferis.str();
+
+    std::ofstream lenteles_failas("referenceLentele.txt", std::ios_base::binary);
+    lenteles_failas.write(isvedimo_string.c_str(), isvedimo_string.size());
+    lenteles_failas.close();
+}
+
 void failo_tikrinimas(){
 
     // Duoda vartotojui pasirinkti failą, kurį jis nori atidaryti
@@ -175,26 +217,15 @@ void failo_tikrinimas(){
         failo_pavadinimas = "./" + ivestis;
     }
 }
-
-    auto start = std::chrono::high_resolution_clock::now(); auto st=start;
-    std::cout << "\n---------------- Įrasomi duomenys.... ----------------\n\n";
-
-    // Kviečiam funkciją, kuri nuskaitys šį failą
-
+    // Kviečiame funkciją, kuri nuskaitys šį failą ir pakoreguos mūsų du std::map kintamuosius
     failo_nuskaitymas(failo_pavadinimas);
 
-    // Kviečiam funkciją, kuri sukurs lentelę su žodžiais ir kiek kartų pasikartojo
+    // Kviečiame funkcijas, kurios sukurs žodžių ir jų skaičių bei reference lenteles
     lenteles_kurimas(pasikartojantys_zodziai,pasikartojantys_URL);
+    reference_kurimas(pasikartojantys_zodziai,pasikartojantys_URL);
 
-    // surašomi programos veikimo laikai
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end-start;
-    std::cout << "\nVisos programos veikimo laikas: "<< diff.count() << " s\n\n";  
-    std::cout << "--------------------------------\n";
     std::cout << "Failas sėkmingai nuskaitytas!\n\n";
-
 };
-
 
 int main(){
 
